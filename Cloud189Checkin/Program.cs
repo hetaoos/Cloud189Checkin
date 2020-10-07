@@ -1,7 +1,6 @@
-using Hangfire;
-using Hangfire.MemoryStorage;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
+using System.Text;
 
 namespace Cloud189Checkin
 {
@@ -9,6 +8,8 @@ namespace Cloud189Checkin
     {
         public static void Main(string[] args)
         {
+            //×¢²á±àÂë
+            Encoding.RegisterProvider(CodePagesEncodingProvider.Instance);
             CreateHostBuilder(args).Build().Run();
         }
 
@@ -16,13 +17,6 @@ namespace Cloud189Checkin
             Host.CreateDefaultBuilder(args)
                 .ConfigureServices((hostContext, services) =>
                 {
-                    services.AddHangfire(configuration =>
-                    configuration.UseSimpleAssemblyNameTypeSerializer()
-                    .UseRecommendedSerializerSettings()
-                    .UseMemoryStorage());
-
-                    services.AddHangfireServer();
-
                     services.Configure<Config>(hostContext.Configuration.GetSection("Config"));
                     services.AddTransient<CheckinApi>();
                     services.AddHostedService<Worker>();

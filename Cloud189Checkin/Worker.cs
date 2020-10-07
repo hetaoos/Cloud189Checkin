@@ -1,4 +1,3 @@
-using Hangfire;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
@@ -43,12 +42,6 @@ namespace Cloud189Checkin
                 throw new Exception("没有有效的账号。");
             }
 
-            foreach (var time in cfg.Times)
-            {
-                _logger.LogInformation($"add recurring job at: {time}");
-                RecurringJob.AddOrUpdate(() => DoAsync(2), Hangfire.Cron.Daily(time.Hours % 24, time.Minutes), TimeZoneInfo.Local);
-            }
-
             switch (cfg.RestartAction)
             {
                 case 0:
@@ -64,6 +57,33 @@ namespace Cloud189Checkin
             }
 
             _logger.LogInformation("Worker staring at: {time}", DateTimeOffset.Now);
+
+            var times = cfg.Times.Select(o => new TimeSpan(o.Hours % 24, o.Minutes, 0)).Distinct().OrderBy(o => o).ToList();
+
+            (TimeSpan next, TimeSpan sleep) GetNext()
+            {
+                var now = DateTime.Now.TimeOfDay;
+                now = new TimeSpan(now.Hours, now.Minutes, 0);
+
+                if (times.Where(o => o > now).Any())
+                {
+                    var next = times.Where(o => o > now).First();
+                    return (next, next - now);
+                }
+                else
+                {
+                    var next = times.First();
+                    return (next, times.First() + new TimeSpan(24, 0, 0) - now);
+                }
+            }
+            while (!stoppingToken.IsCancellationRequested)
+            {
+                var sp = GetNext();
+                _logger.LogInformation($"the next time it will be executed at {sp.next}.");
+                await Task.Delay(sp.sleep, stoppingToken);
+                if (!stoppingToken.IsCancellationRequested)
+                    await DoAsync(2);
+            }
         }
 
         /// <summary>
