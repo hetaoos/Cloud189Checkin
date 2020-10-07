@@ -1,0 +1,25 @@
+﻿<Project Sdk="Microsoft.NET.Sdk.Worker">
+
+  <PropertyGroup>
+    <TargetFramework>netcoreapp3.1</TargetFramework>
+    <DockerDefaultTargetOS>Linux</DockerDefaultTargetOS>
+    <DockerfileContext>.</DockerfileContext>
+    <RepositoryUrl>https://github.com/hetaoos/Cloud189Checkin</RepositoryUrl>
+    <RepositoryType>Git</RepositoryType>
+    <Authors>Null</Authors>
+    <Company>Null</Company>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <Compile Remove="Cookies\**" />
+    <EmbeddedResource Remove="Cookies\**" />
+    <None Remove="Cookies\**" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Hangfire.Core" Version="[1.7.14,)" />
+    <PackageReference Include="Hangfire.AspNetCore" Version="[1.7.14,)" />
+    <PackageReference Include="Hangfire.MemoryStorage" Version="[1.7.0,)" />
+    <PackageReference Include="Newtonsoft.Json" Version="[12.0.3,)" />
+  </ItemGroup>
+</Project>
