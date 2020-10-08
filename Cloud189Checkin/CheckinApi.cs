@@ -29,12 +29,21 @@ namespace Cloud189Checkin
         public CheckinApi(ILogger<CheckinApi> logger)
         {
             _logger = logger;
+        }
+
+        private void CreateHttpClient()
+        {
+            if (client != null)
+                client.Dispose();
+
+            if (httpClientHandler != null)
+                httpClientHandler.Dispose();
+
             httpClientHandler = new HttpClientHandler()
             {
-                AllowAutoRedirect = true,
-                CookieContainer = new CookieContainer(),
-                Proxy = null,
-                AutomaticDecompression = DecompressionMethods.All
+                CookieContainer = TryLoadCookies() ?? new CookieContainer(),
+                AutomaticDecompression = DecompressionMethods.All,
+                UseCookies = true,
             };
             client = new HttpClient(httpClientHandler);
             client.DefaultRequestHeaders.TryAddWithoutValidation("User-Agent", "Mozilla/5.0 (Linux; Android 5.1.1; SM-G930K Build/NRD90M; wv) AppleWebKit/537.36 (KHTML, like Gecko) Version/4.0 Chrome/74.0.3729.136 Mobile Safari/537.36 Ecloud/8.6.3 Android/22 clientId/355325117317828 clientModel/SM-G930K imsi/460071114317824 clientChannelId/qq proVersion/1.0.6");
@@ -47,7 +56,7 @@ namespace Cloud189Checkin
         {
             _username = username;
             _password = password;
-            httpClientHandler.CookieContainer = TryLoadCookies() ?? new CookieContainer();
+            CreateHttpClient();
             return this;
         }
 
@@ -56,7 +65,7 @@ namespace Cloud189Checkin
             var url = "https://cloud.189.cn/v2/getUserLevelInfo.action";
 
             var d = await GetData(url);
-            if (d.ret == 1)
+            if (d != null && d.ret == 1)
             {
                 _logger.LogInformation("currently logged in.");
                 return true;
@@ -197,8 +206,16 @@ namespace Cloud189Checkin
             return string.Empty;
         }
 
+        /// <summary>
+        /// 获取数据
+        /// </summary>
+        /// <param name="url"></param>
+        /// <returns></returns>
         private async Task<dynamic> GetData(string url)
         {
+            if (client == null)
+                return null;
+
             var resp = await client.GetAsync(url);
             if (resp.IsSuccessStatusCode == false)
                 return null;
