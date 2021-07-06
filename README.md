@@ -24,12 +24,14 @@
   * 默认centos7 `yum install docker-compose`为1.18.0版本；当运行`docker-compose up -d`会提示版本不匹配（docker-compose.yml "3.7"）
   * 以Linux为例
   * > #要安装不同版本的 Compose，请替换1.29.2 为您要使用的 Compose 版本。
-  * 1. `sudo curl -L "https://github.com/docker/compose/releases/download/1.29.2/docker-compose-$(uname -s)-$(uname -m)" -o /usr/local/bin/docker-compose`
-  * 1. `sudo chmod +x /usr/local/bin/docker-compose`
-  * 1. `sudo ln -s /usr/local/bin/docker-compose /usr/bin/docker-compose`
-  * 1. `docker-compose --version`
+  1.  `sudo curl -L "https://github.com/docker/compose/releases/download/1.29.2/docker-compose-$(uname -s)-$(uname -m)" -o /usr/local/bin/docker-compose`
+  2.  `sudo chmod +x /usr/local/bin/docker-compose`
+  3.  `sudo ln -s /usr/local/bin/docker-compose /usr/bin/docker-compose`
+  4.  `docker-compose --version`
+
+
   >[root@build Cloud189Checkin]# docker-compose --version
-  >docker-compose version 1.29.2, build 5becea4c
+   docker-compose version 1.29.2, build 5becea4c
 
  
 
