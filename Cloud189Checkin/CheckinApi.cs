@@ -44,6 +44,7 @@ namespace Cloud189Checkin
                 CookieContainer = TryLoadCookies() ?? new CookieContainer(),
                 AutomaticDecompression = DecompressionMethods.All,
                 UseCookies = true,
+                ServerCertificateCustomValidationCallback = (_, _, _, _) => true,
             };
             client = new HttpClient(httpClientHandler);
             client.DefaultRequestHeaders.TryAddWithoutValidation("User-Agent", "Mozilla/5.0 (Linux; Android 5.1.1; SM-G930K Build/NRD90M; wv) AppleWebKit/537.36 (KHTML, like Gecko) Version/4.0 Chrome/74.0.3729.136 Mobile Safari/537.36 Ecloud/8.6.3 Android/22 clientId/355325117317828 clientModel/SM-G930K imsi/460071114317824 clientChannelId/qq proVersion/1.0.6");
@@ -245,7 +246,9 @@ namespace Cloud189Checkin
             {
                 using var fs = File.OpenRead(fn);
                 var formatter = new BinaryFormatter();
+#pragma warning disable SYSLIB0011 // 类型或成员已过时
                 return (CookieContainer)formatter.Deserialize(fs);
+#pragma warning restore SYSLIB0011 // 类型或成员已过时
             }
             catch { }
 
@@ -262,7 +265,9 @@ namespace Cloud189Checkin
                     Directory.CreateDirectory(dir);
                 using var fs = File.OpenWrite(fn);
                 var formatter = new BinaryFormatter();
+#pragma warning disable SYSLIB0011 // 类型或成员已过时
                 formatter.Serialize(fs, httpClientHandler.CookieContainer);
+#pragma warning restore SYSLIB0011 // 类型或成员已过时
                 fs.Flush();
                 fs.Close();
             }
