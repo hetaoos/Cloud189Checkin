@@ -75,7 +75,7 @@ namespace Cloud189Checkin
             _logger.LogInformation("start logging in.");
             try
             {
-                url = "https://cloud.189.cn/udb/udb_login.jsp?pageId=1&redirectURL=/main.action";
+                url = "https://cloud.189.cn/api/portal/loginUrl.action?redirectURL=https://cloud.189.cn/web/redirect.html";
                 var html = await client.GetStringAsync(url);
 
                 var captchaToken = GetFieldValue(html, "captchaToken");
