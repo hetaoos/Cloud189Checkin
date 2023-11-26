@@ -1,16 +1,20 @@
 ﻿using Microsoft.Extensions.Logging;
-using Newtonsoft.Json;
 using System;
 using System.Collections.Generic;
+using System.Collections.Specialized;
 using System.IO;
+using System.Linq;
 using System.Net;
 using System.Net.Http;
 using System.Net.Http.Headers;
-using System.Runtime.Serialization.Formatters.Binary;
 using System.Security.Cryptography;
 using System.Text;
+using System.Text.Json;
+using System.Text.Json.Nodes;
+using System.Text.Json.Serialization;
 using System.Text.RegularExpressions;
 using System.Threading.Tasks;
+using System.Web;
 
 namespace Cloud189Checkin
 {
@@ -25,6 +29,15 @@ namespace Cloud189Checkin
         private HttpClientHandler httpClientHandler;
         private string _username;
         private string _password;
+
+        /// <summary>
+        /// 加密公钥
+        /// </summary>
+        private static string rsa_public_key = "MIGfMA0GCSqGSIb3DQEBAQUAA4GNADCBiQKBgQCZLyV4gHNDUGJMZoOcYauxmNEsKrc0TlLeBEVVIIQNzG4WqjimceOj5R9ETwDeeSN3yejAKLGHgx83lyy2wBjvnbfm/nLObyWwQD/09CmpZdxoFYCH6rdDjRpwZOZ2nXSZpgkZXoOBkfNXNxnN74aXtho2dqBynTw3NFTWyQl8BQIDAQAB";
+
+        private static string app_conf_url = "https://open.e.189.cn/api/logbox/oauth2/appConf.do";
+        private static string redirect_url = "https://cloud.189.cn/api/portal/loginUrl.action?redirectURL=https://cloud.189.cn/web/redirect.html?returnURL=/main.action";
+        private static string login_url = "https://open.e.189.cn/api/logbox/oauth2/loginSubmit.do";
 
         public CheckinApi(ILogger<CheckinApi> logger)
         {
@@ -66,7 +79,7 @@ namespace Cloud189Checkin
             var url = "https://cloud.189.cn/v2/getUserLevelInfo.action";
 
             var d = await GetData(url);
-            if (d != null && d.ret == 1)
+            if (d != null && d["ret"]?.GetValue<int>() == 1)
             {
                 _logger.LogInformation("currently logged in.");
                 return true;
@@ -75,18 +88,30 @@ namespace Cloud189Checkin
             _logger.LogInformation("start logging in.");
             try
             {
-                url = "https://cloud.189.cn/api/portal/loginUrl.action?redirectURL=https://cloud.189.cn/web/redirect.html";
-                var html = await client.GetStringAsync(url);
+                var resp = await client.GetAsync(redirect_url);
+                var nameValuePairs = HttpUtility.ParseQueryString(resp.RequestMessage.RequestUri.Query);
 
-                var captchaToken = GetFieldValue(html, "captchaToken");
-                var lt = GetJsVariableValue(html, "lt");
-                var returnUrl = GetJsVariableValue(html, "returnUrl");
-                var paramId = GetJsVariableValue(html, "paramId");
-                var j_rsaKey = GetFieldValue(html, "j_rsaKey");
+                var param = new NameValueCollection(nameValuePairs);
+                param.Add("rsaKey", rsa_public_key);
 
-                client.DefaultRequestHeaders.TryAddWithoutValidation("lt", lt);
+                var urlEncodedContent = new FormUrlEncodedContent(new Dictionary<string, string>()
+                {
+                    ["version"] = "2.0",
+                    ["appKey"] = "cloud",
+                });
+                urlEncodedContent.Headers.TryAddWithoutValidation("Referer", "https://open.e.189.cn/");
+                urlEncodedContent.Headers.TryAddWithoutValidation("lt", param["lt"]);
+                urlEncodedContent.Headers.TryAddWithoutValidation("REQID", param["reqId"]);
+
+                resp = await client.PostAsync(app_conf_url, urlEncodedContent);
+                var json = await resp.Content.ReadAsStringAsync();
+                var obj = JsonNode.Parse(json)!;
+                string returnUrl = obj["data"]["returnUrl"].GetValue<string>();
+                string paramId = obj["data"]["paramId"].GetValue<string>();
+
+                client.DefaultRequestHeaders.TryAddWithoutValidation("lt", param["lt"]);
                 using var rsa = RSA.Create();
-                rsa.ImportSubjectPublicKeyInfo(Convert.FromBase64String(j_rsaKey), out var _);
+                rsa.ImportSubjectPublicKeyInfo(Convert.FromBase64String(rsa_public_key), out var _);
 
                 string Encrypt(string _s)
                     => BitConverter.ToString(rsa.Encrypt(Encoding.UTF8.GetBytes(_s), RSAEncryptionPadding.Pkcs1)).Replace("-", "").ToLower();
@@ -95,33 +120,33 @@ namespace Cloud189Checkin
                 {
                     ["appKey"] = "cloud",
                     ["accountType"] = "01",
-                    ["userName"] = $"{{RSA}}{Encrypt(_username)}",
-                    ["password"] = $"{{RSA}}{Encrypt(_password)}",
+                    ["userName"] = $"{{NRP}}{Encrypt(_username)}",
+                    ["password"] = $"{{NRP}}{Encrypt(_password)}",
                     ["validateCode"] = "",
-                    ["captchaToken"] = captchaToken,
+                    ["captchaToken"] = "",
                     ["returnUrl"] = returnUrl,
                     ["mailSuffix"] = "@189.cn",
                     ["paramId"] = paramId,
                 };
 
-                url = "https://open.e.189.cn/api/logbox/oauth2/loginSubmit.do";
                 var c = new FormUrlEncodedContent(data);
                 var s = await c.ReadAsStringAsync();
-                var resp = await client.PostAsync(url, c);
-                var json = await resp.Content.ReadAsStringAsync();
-                var r = JsonConvert.DeserializeObject<dynamic>(json);
+                resp = await client.PostAsync(login_url, c);
+                json = await resp.Content.ReadAsStringAsync();
+                obj = JsonNode.Parse(json)!;
+                var result = obj["result"].GetValue<int>();
+                var msg = obj["msg"].GetValue<string>();
 
-                string msg = r.msg;
-                if (r.result != 0)
+                if (result != 0)
                 {
                     _logger.LogError($"login failed: {msg}");
                     return false;
                 }
                 _logger.LogInformation(msg);
 
-                url = r.toUrl;
+                url = obj["toUrl"].GetValue<string>();
 
-                html = await client.GetStringAsync(url);
+                var html = await client.GetStringAsync(url);
 
                 SaveCookies();
 
@@ -148,7 +173,7 @@ namespace Cloud189Checkin
                 _logger.LogWarning("check in failed.");
                 return false;
             }
-            _logger.LogInformation($"sign time: {d.signTime}, netdiskBonus: {d.netdiskBonus}M.");
+            _logger.LogInformation($"sign time: {d["signTime"]}, netdiskBonus: {d["netdiskBonus"]}M.");
 
             url = "https://m.cloud.189.cn/v2/drawPrizeMarketDetails.action?taskId=TASK_SIGNIN&activityId=ACT_SIGNIN";
             await DoCheckin(url);
@@ -162,12 +187,13 @@ namespace Cloud189Checkin
                     _logger.LogWarning("draw failed.");
                     return;
                 }
-                if (d.errorCode == "User_Not_Chance")
+                var errorCode = d["errorCode"]?.GetValue<string>();
+                if (errorCode == "User_Not_Chance")
                     _logger.LogInformation("already draw.");
-                else if (d.errorCode != null)
-                    _logger.LogWarning($"draw failed: {d.errorCode}");
+                else if (errorCode != null)
+                    _logger.LogWarning($"draw failed: {errorCode}");
                 else
-                    _logger.LogInformation($"draw successful: {d.description}");
+                    _logger.LogInformation($"draw successful: {d["description"]}");
             }
 
             //重新保存下
@@ -212,7 +238,7 @@ namespace Cloud189Checkin
         /// </summary>
         /// <param name="url"></param>
         /// <returns></returns>
-        private async Task<dynamic> GetData(string url)
+        private async Task<JsonNode> GetData(string url)
         {
             if (client == null)
                 return null;
@@ -223,7 +249,8 @@ namespace Cloud189Checkin
             var json = await resp.Content.ReadAsStringAsync();
             try
             {
-                return JsonConvert.DeserializeObject<dynamic>(json);
+                var node = JsonNode.Parse(json);
+                return node;
             }
             catch (Exception ex)
             {
@@ -234,7 +261,7 @@ namespace Cloud189Checkin
         }
 
         private string GetCookieFileName()
-            => $"Cookies/{_username}.cookies";
+            => $"Cookies/{_username}.v2.cookies";
 
         private CookieContainer TryLoadCookies()
         {
@@ -244,11 +271,13 @@ namespace Cloud189Checkin
 
             try
             {
+                var cc = new CookieContainer();
                 using var fs = File.OpenRead(fn);
-                var formatter = new BinaryFormatter();
-#pragma warning disable SYSLIB0011 // 类型或成员已过时
-                return (CookieContainer)formatter.Deserialize(fs);
-#pragma warning restore SYSLIB0011 // 类型或成员已过时
+                var cookies = JsonSerializer.Deserialize(fs, MyJsonSerializerContext.Default.ListCookie);
+                foreach (var cookie in cookies)
+                    cc.Add(cookie);
+
+                return cc;
             }
             catch { }
 
@@ -263,15 +292,18 @@ namespace Cloud189Checkin
             {
                 if (Directory.Exists(dir) == false)
                     Directory.CreateDirectory(dir);
-                using var fs = File.OpenWrite(fn);
-                var formatter = new BinaryFormatter();
-#pragma warning disable SYSLIB0011 // 类型或成员已过时
-                formatter.Serialize(fs, httpClientHandler.CookieContainer);
-#pragma warning restore SYSLIB0011 // 类型或成员已过时
-                fs.Flush();
-                fs.Close();
+
+                var cookies = httpClientHandler.CookieContainer.GetAllCookies().ToList();
+                var bytes = JsonSerializer.SerializeToUtf8Bytes(cookies, MyJsonSerializerContext.Default.ListCookie);
+                File.WriteAllBytes(fn, bytes);
             }
             catch { }
         }
+    }
+
+    [JsonSerializable(typeof(List<Cookie>))]
+    [JsonSerializable(typeof(Cookie))]
+    internal partial class MyJsonSerializerContext : JsonSerializerContext
+    {
     }
 }

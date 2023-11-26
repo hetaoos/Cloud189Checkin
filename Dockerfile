@@ -1,21 +1,44 @@
-#See https://aka.ms/containerfastmode to understand how Visual Studio uses this Dockerfile to build your images for faster debugging.
+###syntax11 = docker/dockerfile:1.3
 
-FROM mcr.microsoft.com/dotnet/runtime:5.0 AS base
-WORKDIR /app
-ENV TZ=Asia/Shanghai
-
-FROM mcr.microsoft.com/dotnet/sdk:5.0-focal AS build
+FROM --platform=$BUILDPLATFORM mcr.microsoft.com/dotnet/sdk:8.0-jammy AS build
 WORKDIR /src
-COPY ["Cloud189Checkin/Cloud189Checkin.csproj", "Cloud189Checkin/"]
-RUN dotnet restore "Cloud189Checkin/Cloud189Checkin.csproj"
+ENV TZ=Asia/Shanghai
+RUN ln -snf /usr/share/zoneinfo/$TZ /etc/localtime && echo $TZ > /etc/timezone
+
 COPY . .
-WORKDIR "/src/Cloud189Checkin"
-RUN dotnet build "Cloud189Checkin.csproj" -c Release -o /app/build
 
-FROM build AS publish
-RUN dotnet publish "Cloud189Checkin.csproj" -c Release -o /app/publish
+RUN sed -i s@/deb.debian.org/@/mirrors.ustc.edu.cn/@g /etc/apt/sources.list && \
+sed -i s@/snapshot.debian.org/@/mirrors.ustc.edu.cn/@g /etc/apt/sources.list && \
+sed -i s@/security.debian.org/@/mirrors.ustc.edu.cn/@g /etc/apt/sources.list && \
+sed -i s/cn.archive.ubuntu.com/mirrors.ustc.edu.cn/g /etc/apt/sources.list && \
+sed -i s/archive.ubuntu.com/mirrors.ustc.edu.cn/g /etc/apt/sources.list && \
+sed -i s/security.ubuntu.com/mirrors.ustc.edu.cn/g /etc/apt/sources.list && \
+apt-get update -y && \
+apt-get install clang zlib1g-dev -y
 
-FROM base AS final
+RUN dotnet restore Cloud189Checkin/Cloud189Checkin.csproj -s https://nuget.cdn.azure.cn/v3/index.json
+RUN dotnet publish Cloud189Checkin/Cloud189Checkin.csproj -c Release -o /app -nowarn:cs0168,cs0105
+
+RUN find /app -name "*.pdb"  | xargs rm -f
+RUN find /app -name "*.dbg"  | xargs rm -f
+RUN rm -f /app/appsettings.Development.json
+
+#移除 OSX Windows 下的库
+RUN rm -rf /app/runtimes/osx* /app/runtimes/win* /app/runtimes/*x86 /app/runtimes/linux-armel /app/runtimes/unix
+
+FROM --platform=$TARGETPLATFORM mcr.microsoft.com/dotnet/runtime-deps:8.0 AS final
+ARG TARGETARCH
+RUN arch=$TARGETARCH \
+    && if [ "$TARGETARCH" = "amd64" ]; then arch="x64"; fi \
+    && echo $arch > /tmp/arch
 WORKDIR /app
-COPY --from=publish /app/publish .
-ENTRYPOINT ["dotnet", "Cloud189Checkin.dll"]
+EXPOSE 80
+ENV TZ=Asia/Shanghai
+RUN ln -snf /usr/share/zoneinfo/$TZ /etc/localtime && echo $TZ > /etc/timezone
+
+COPY --from=build /app .
+
+#指定IPv4优先
+RUN echo precedence ::ffff:0:0/96 100 >> /etc/gai.conf
+
+ENTRYPOINT ["./Cloud189Checkin"]
