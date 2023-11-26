@@ -173,7 +173,7 @@ namespace Cloud189Checkin
                 _logger.LogWarning("check in failed.");
                 return false;
             }
-            _logger.LogInformation($"sign time: {d["signTime"]}, netdiskBonus: {d["netdiskBonus"]}M.");
+            _logger.LogInformation($"sign time: {d["signTime"]?.GetValue<DateTime?>():yyyy-MM-dd HH:mm:ss}, netdiskBonus: {d["netdiskBonus"]}M.");
 
             url = "https://m.cloud.189.cn/v2/drawPrizeMarketDetails.action?taskId=TASK_SIGNIN&activityId=ACT_SIGNIN";
             await DoCheckin(url);
