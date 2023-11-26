@@ -9,6 +9,7 @@
     <Company>Null</Company>
     <PublishAot>true</PublishAot>
 	<IsAotCompatible>true</IsAotCompatible>
+    <EnableConfigurationBindingGenerator>true</EnableConfigurationBindingGenerator>
   </PropertyGroup>
   <ItemGroup>
     <Compile Remove="Cookies\**" />

@@ -1,6 +1,8 @@
+using System.Text;
+using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
-using System.Text;
+using Microsoft.Extensions.Options;
 
 namespace Cloud189Checkin
 {
@@ -10,16 +12,14 @@ namespace Cloud189Checkin
         {
             //×¢²á±àÂë
             Encoding.RegisterProvider(CodePagesEncodingProvider.Instance);
-            CreateHostBuilder(args).Build().Run();
-        }
 
-        public static IHostBuilder CreateHostBuilder(string[] args) =>
-            Host.CreateDefaultBuilder(args)
-                .ConfigureServices((hostContext, services) =>
-                {
-                    services.Configure<Config>(hostContext.Configuration.GetSection("Config"));
-                    services.AddTransient<CheckinApi>();
-                    services.AddHostedService<Worker>();
-                });
+            var builder = Host.CreateApplicationBuilder(args);
+            builder.Services.AddTransient<CheckinApi>();
+            builder.Services.AddHostedService<Worker>();
+            IConfigurationSection section = builder.Configuration.GetSection("Config");
+            builder.Services.Configure<Config>(section);
+            var host = builder.Build();
+            host.Run();
+        }
     }
 }

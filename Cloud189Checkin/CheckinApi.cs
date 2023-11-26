@@ -303,6 +303,8 @@ namespace Cloud189Checkin
 
     [JsonSerializable(typeof(List<Cookie>))]
     [JsonSerializable(typeof(Cookie))]
+    [JsonSerializable(typeof(Config))]
+    [JsonSerializable(typeof(Account))]
     internal partial class MyJsonSerializerContext : JsonSerializerContext
     {
     }
