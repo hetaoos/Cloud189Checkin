@@ -38,8 +38,8 @@ namespace Cloud189Checkin
             var accounts = cfg.Accounts?.Where(o => o?.IsValid() == true).ToArray();
             if (accounts?.Any() != true)
             {
-                _logger.LogWarning("Ã»ÓĞÓĞĞ§µÄÕËºÅ¡£");
-                throw new Exception("Ã»ÓĞÓĞĞ§µÄÕËºÅ¡£");
+                _logger.LogWarning("æ²¡æœ‰æœ‰æ•ˆçš„è´¦å·ã€‚");
+                throw new Exception("æ²¡æœ‰æœ‰æ•ˆçš„è´¦å·ã€‚");
             }
 
             switch (cfg.RestartAction)
@@ -87,7 +87,7 @@ namespace Cloud189Checkin
         }
 
         /// <summary>
-        /// ³¢ÊÔµÇÂ¼»òÕßÇ©µ½
+        /// å°è¯•ç™»å½•æˆ–è€…ç­¾åˆ°
         /// </summary>
         /// <param name="mode"></param>
         /// <returns></returns>
@@ -99,7 +99,7 @@ namespace Cloud189Checkin
 
             if (accounts?.Any() != true)
             {
-                _logger.LogWarning("Ã»ÓĞÓĞĞ§µÄÕËºÅ¡£");
+                _logger.LogWarning("æ²¡æœ‰æœ‰æ•ˆçš„è´¦å·ã€‚");
                 return;
             }
 
