@@ -10,7 +10,7 @@ namespace Cloud189Checkin
     {
         public static void Main(string[] args)
         {
-            //×¢²á±àÂë
+            //æ³¨å†Œç¼–ç 
             Encoding.RegisterProvider(CodePagesEncodingProvider.Instance);
 
             var builder = Host.CreateApplicationBuilder(args);
